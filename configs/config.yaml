@@ -1,0 +1,22 @@
+postgres:
+  host: postgres
+  port: 5432
+  user: bookshop
+  password: bookshop
+  dbname: bookshop
+  sslmode: disable
+redis:
+  addr: redis:6379
+  db: 0
+kafka:
+  brokers:
+    - kafka:9092
+  order_topic: order_placed
+keycloak:
+  url: http://keycloak:8080
+  realm: bookshop
+  client_id: bookshop-api
+http:
+  addr: :8081
+log:
+  level: info 
