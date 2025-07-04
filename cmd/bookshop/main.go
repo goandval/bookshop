@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("failed to read config: %v", err)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	logger.Info("Bookshop starting...")
 
 	// --- Postgres ---
@@ -72,9 +72,9 @@ func main() {
 	orderService := service.NewOrderService(orderRepo, cartRepo, bookRepo, kafkaProducer)
 
 	// --- Delivery ---
-	handler := httpdelivery.NewHandler(bookService, categoryService, cartService, orderService)
-	authMw := httpdelivery.NewAuthMiddleware(keycloak)
-	router := handler.Router(authMw)
+	handler := httpdelivery.NewHandler(bookService, categoryService, cartService, orderService, logger)
+	auth := httpdelivery.NewAuthMiddleware(keycloak, logger)
+	router := handler.Router(auth)
 
 	// --- HTTP server ---
 	srv := &http.Server{

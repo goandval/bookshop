@@ -9,12 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/yourorg/bookshop/internal/mocks"
+	"golang.org/x/exp/slog"
 )
 
 func TestAuthMiddleware_JWTAuth_Success(t *testing.T) {
 	keycloak := new(mocks.KeycloakClient)
 	keycloak.On("ValidateToken", mock.Anything, "valid-token").Return("user-1", "user@ex.com", []string{"user"}, nil)
-	mw := NewAuthMiddleware(keycloak)
+	logger := slog.New(slog.NewTextHandler(nil, nil))
+	mw := NewAuthMiddleware(keycloak, logger)
 
 	called := false
 	h := mw.JWTAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +38,8 @@ func TestAuthMiddleware_JWTAuth_Success(t *testing.T) {
 
 func TestAuthMiddleware_RequireRole_Forbidden(t *testing.T) {
 	keycloak := new(mocks.KeycloakClient)
-	mw := NewAuthMiddleware(keycloak)
+	logger := slog.New(slog.NewTextHandler(nil, nil))
+	mw := NewAuthMiddleware(keycloak, logger)
 
 	h := mw.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
