@@ -63,3 +63,4 @@ func (r *CategoryPostgres) GetByName(ctx context.Context, name string) (*domain.
 	}
 	return &c, nil
 }
+ 

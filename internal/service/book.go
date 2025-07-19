@@ -52,3 +52,4 @@ func (s *BookServiceImpl) Update(ctx context.Context, book *domain.Book) error {
 func (s *BookServiceImpl) Delete(ctx context.Context, id int) error {
 	return s.bookRepo.Delete(ctx, id)
 }
+ 

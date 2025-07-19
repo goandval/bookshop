@@ -1,10 +1,3 @@
--- users: только для связи с Keycloak (id, email, is_admin)
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE
-);
-
 -- categories
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
@@ -27,7 +20,7 @@ CREATE TABLE IF NOT EXISTS books (
 -- carts
 CREATE TABLE IF NOT EXISTS carts (
     id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -37,6 +30,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
     id SERIAL PRIMARY KEY,
     cart_id INT NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
     book_id INT NOT NULL REFERENCES books(id),
+    quantity INT NOT NULL DEFAULT 1,
     reserved_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(cart_id, book_id)
 );
@@ -44,7 +38,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
 -- orders
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id),
+    user_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

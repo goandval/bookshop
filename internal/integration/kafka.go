@@ -32,14 +32,19 @@ func NewKafkaProducer() *KafkaProducerImpl {
 	}
 }
 
-type orderPlacedEvent struct {
-	OrderID int    `json:"order_id"`
-	UserID  string `json:"user_id"`
-	BookIDs []int  `json:"book_ids"`
+type OrderPlacedBook struct {
+	BookID   int `json:"book_id"`
+	Quantity int `json:"quantity"`
 }
 
-func (k *KafkaProducerImpl) PublishOrderPlaced(ctx context.Context, orderID int, userID string, bookIDs []int) error {
-	evt := orderPlacedEvent{OrderID: orderID, UserID: userID, BookIDs: bookIDs}
+type orderPlacedEvent struct {
+	OrderID int               `json:"order_id"`
+	UserID  string            `json:"user_id"`
+	Books   []OrderPlacedBook `json:"books"`
+}
+
+func (k *KafkaProducerImpl) PublishOrderPlaced(ctx context.Context, orderID int, userID string, books []OrderPlacedBook) error {
+	evt := orderPlacedEvent{OrderID: orderID, UserID: userID, Books: books}
 	data, err := json.Marshal(evt)
 	if err != nil {
 		return err

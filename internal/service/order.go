@@ -35,19 +35,18 @@ func (s *OrderServiceImpl) Create(ctx context.Context, userID string) (*domain.O
 		return nil, errors.New("cart is empty")
 	}
 	var orderItems []domain.OrderItem
-	var bookIDs []int
+	var books []integration.OrderPlacedBook
 	for _, item := range items {
 		book, err := s.bookRepo.GetByID(ctx, item.BookID)
 		if err != nil {
 			return nil, fmt.Errorf("book not found: %w", err)
 		}
-		if book.Inventory <= 0 {
+		if book.Inventory < item.Quantity {
 			return nil, fmt.Errorf("book out of stock: %d", book.ID)
 		}
-		orderItems = append(orderItems, domain.OrderItem{BookID: book.ID, Price: book.Price})
-		bookIDs = append(bookIDs, book.ID)
+		orderItems = append(orderItems, domain.OrderItem{BookID: book.ID, Price: book.Price, Quantity: item.Quantity})
+		books = append(books, integration.OrderPlacedBook{BookID: book.ID, Quantity: item.Quantity})
 	}
-	// Атомарное списание остатков и создание заказа (эмулируем транзакцию)
 	order := &domain.Order{UserID: userID, Items: orderItems}
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		return nil, fmt.Errorf("create order: %w", err)
@@ -55,15 +54,18 @@ func (s *OrderServiceImpl) Create(ctx context.Context, userID string) (*domain.O
 	if err := s.cartRepo.Clear(ctx, userID); err != nil {
 		return nil, fmt.Errorf("clear cart: %w", err)
 	}
-	if err := s.kafka.PublishOrderPlaced(ctx, order.ID, userID, bookIDs); err != nil {
+	if err := s.kafka.PublishOrderPlaced(ctx, order.ID, userID, books); err != nil {
 		return nil, fmt.Errorf("publish kafka: %w", err)
 	}
 	return order, nil
 }
 
 func (s *OrderServiceImpl) ListByUser(ctx context.Context, userID string) ([]*domain.Order, error) {
-	// TODO: реализовать
-	return nil, nil
+	orders, err := s.orderRepo.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list orders: %w", err)
+	}
+	return orders, nil
 }
 
 func (s *OrderServiceImpl) ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error) {

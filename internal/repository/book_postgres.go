@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yourorg/bookshop/internal/domain"
@@ -27,12 +28,22 @@ func (r *BookPostgres) GetByID(ctx context.Context, id int) (*domain.Book, error
 func (r *BookPostgres) List(ctx context.Context, categoryIDs []int, limit, offset int) ([]*domain.Book, error) {
 	q := `SELECT id, title, author, year, price, category_id, inventory, created_at, updated_at FROM books WHERE inventory > 0`
 	args := []interface{}{}
+	paramCount := 0
+
 	if len(categoryIDs) > 0 {
-		q += " AND category_id = ANY($1)"
+		paramCount++
+		q += " AND category_id = ANY($" + strconv.Itoa(paramCount) + ")"
 		args = append(args, categoryIDs)
 	}
-	q += " ORDER BY id LIMIT $2 OFFSET $3"
-	args = append(args, limit, offset)
+
+	paramCount++
+	q += " ORDER BY id LIMIT $" + strconv.Itoa(paramCount)
+	args = append(args, limit)
+
+	paramCount++
+	q += " OFFSET $" + strconv.Itoa(paramCount)
+	args = append(args, offset)
+
 	rows, err := r.db.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -45,6 +56,9 @@ func (r *BookPostgres) List(ctx context.Context, categoryIDs []int, limit, offse
 			return nil, err
 		}
 		books = append(books, &b)
+	}
+	if books == nil {
+		books = make([]*domain.Book, 0)
 	}
 	return books, nil
 }
@@ -65,3 +79,4 @@ func (r *BookPostgres) Delete(ctx context.Context, id int) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM books WHERE id=$1`, id)
 	return err
 }
+ 

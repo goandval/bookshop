@@ -52,3 +52,4 @@ func TestAuthMiddleware_RequireRole_Forbidden(t *testing.T) {
 	h.ServeHTTP(rw, req.WithContext(ctx))
 	assert.Equal(t, 403, rw.Code)
 }
+ 

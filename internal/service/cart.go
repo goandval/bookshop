@@ -4,30 +4,53 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/yourorg/bookshop/internal/domain"
 	"github.com/yourorg/bookshop/internal/integration"
 	"github.com/yourorg/bookshop/internal/repository"
+	"golang.org/x/exp/slog"
 )
 
 type CartServiceImpl struct {
 	cartRepo repository.CartRepository
 	bookRepo repository.BookRepository
 	redis    integration.RedisCache
+	Logger   *slog.Logger
 }
 
-func NewCartService(cartRepo repository.CartRepository, bookRepo repository.BookRepository, redis integration.RedisCache) *CartServiceImpl {
+func NewCartService(cartRepo repository.CartRepository, bookRepo repository.BookRepository, redis integration.RedisCache, logger *slog.Logger) *CartServiceImpl {
 	return &CartServiceImpl{
 		cartRepo: cartRepo,
 		bookRepo: bookRepo,
 		redis:    redis,
+		Logger:   logger,
 	}
 }
 
 func (s *CartServiceImpl) GetByUserID(ctx context.Context, userID string) (*domain.Cart, error) {
-	// TODO: реализовать
-	return nil, nil
+	cart, err := s.cartRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.cartRepo.ListItems(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		book, err := s.bookRepo.GetByID(ctx, item.BookID)
+		if err == nil {
+			item.Book = book
+		}
+	}
+	cart.Items = nil
+	for _, item := range items {
+		if item != nil {
+			cart.Items = append(cart.Items, *item)
+		}
+	}
+	return cart, nil
 }
 
 func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int) error {
@@ -38,34 +61,42 @@ func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int
 	if book.Inventory <= 0 {
 		return errors.New("book is out of stock")
 	}
-	// Проверка резервирования через Redis
-	redisKey := "reserve:book:" + strconv.Itoa(bookID)
-	val, err := s.redis.Get(redisKey)
-	if err == nil && val != "" {
-		return errors.New("book is already reserved")
+	quantity, err := s.cartRepo.GetItemQuantity(ctx, userID, bookID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			quantity = 0
+		} else {
+			return fmt.Errorf("get item quantity: %w", err)
+		}
 	}
-	// Добавление в корзину
+	if quantity >= book.Inventory {
+		return errors.New("not enough books in stock")
+	}
+	// inventory НЕ уменьшаем! Только добавляем в корзину
 	if err := s.cartRepo.AddItem(ctx, userID, bookID); err != nil {
 		return fmt.Errorf("add to cart: %w", err)
-	}
-	// Резервируем в Redis на 30 минут
-	if err := s.redis.Set(redisKey, userID, 1800); err != nil {
-		return fmt.Errorf("reserve in redis: %w", err)
 	}
 	return nil
 }
 
 func (s *CartServiceImpl) RemoveItem(ctx context.Context, userID string, bookID int) error {
-	// TODO: реализовать
-	return nil
+	return s.cartRepo.RemoveItem(ctx, userID, bookID)
 }
 
 func (s *CartServiceImpl) Clear(ctx context.Context, userID string) error {
-	// TODO: реализовать
-	return nil
+	return s.cartRepo.Clear(ctx, userID)
 }
 
 func (s *CartServiceImpl) ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error) {
-	// TODO: реализовать
-	return nil, nil
+	items, err := s.cartRepo.ListItems(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		book, err := s.bookRepo.GetByID(ctx, item.BookID)
+		if err == nil {
+			item.Book = book
+		}
+	}
+	return items, nil
 }

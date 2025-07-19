@@ -26,7 +26,7 @@ func (r *OrderPostgres) Create(ctx context.Context, order *domain.Order) error {
 		return err
 	}
 	for _, item := range order.Items {
-		row := tx.QueryRow(ctx, `INSERT INTO order_items (order_id, book_id, price) VALUES ($1, $2, $3) RETURNING id`, order.ID, item.BookID, item.Price)
+		row := tx.QueryRow(ctx, `INSERT INTO order_items (order_id, book_id, price, quantity) VALUES ($1, $2, $3, $4) RETURNING id`, order.ID, item.BookID, item.Price, item.Quantity)
 		if err := row.Scan(&item.ID); err != nil {
 			return err
 		}
@@ -53,13 +53,13 @@ func (r *OrderPostgres) ListByUser(ctx context.Context, userID string) ([]*domai
 			return nil, err
 		}
 		// Получаем order_items
-		itemRows, err := r.db.Query(ctx, `SELECT id, book_id, price FROM order_items WHERE order_id=$1`, o.ID)
+		itemRows, err := r.db.Query(ctx, `SELECT id, order_id, book_id, price, quantity FROM order_items WHERE order_id=$1`, o.ID)
 		if err != nil {
 			return nil, err
 		}
 		for itemRows.Next() {
 			var it domain.OrderItem
-			if err := itemRows.Scan(&it.ID, &it.BookID, &it.Price); err != nil {
+			if err := itemRows.Scan(&it.ID, &it.OrderID, &it.BookID, &it.Price, &it.Quantity); err != nil {
 				itemRows.Close()
 				return nil, err
 			}

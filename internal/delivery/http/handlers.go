@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -67,15 +68,101 @@ func (h *Handler) GetBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateBook(w http.ResponseWriter, r *http.Request) {
-	// TODO: реализовать
+	var req struct {
+		Title      string  `json:"title"`
+		Author     string  `json:"author"`
+		Year       int     `json:"year"`
+		Price      float64 `json:"price"`
+		CategoryID int     `json:"category_id"`
+		Inventory  int     `json:"stock"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Title == "" || req.Author == "" || req.CategoryID == 0 {
+		h.Logger.Error("invalid book create request", "err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	book := &domain.Book{
+		Title:      req.Title,
+		Author:     req.Author,
+		Year:       req.Year,
+		Price:      req.Price,
+		CategoryID: req.CategoryID,
+		Inventory:  req.Inventory,
+	}
+	if err := h.Book.Create(r.Context(), book); err != nil {
+		h.Logger.Error("failed to create book", "err", err)
+		errStr := err.Error()
+		if strings.Contains(errStr, "inventory must be >= 0") ||
+			strings.Contains(errStr, "category required") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(book)
 }
 
 func (h *Handler) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	// TODO: реализовать
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.Logger.Error("invalid book id", "id", idStr, "err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Title      string  `json:"title"`
+		Author     string  `json:"author"`
+		Year       int     `json:"year"`
+		Price      float64 `json:"price"`
+		CategoryID int     `json:"category_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Title == "" || req.Author == "" || req.CategoryID == 0 {
+		h.Logger.Error("invalid book update request", "err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	book := &domain.Book{
+		ID:         id,
+		Title:      req.Title,
+		Author:     req.Author,
+		Year:       req.Year,
+		Price:      req.Price,
+		CategoryID: req.CategoryID,
+	}
+	if err := h.Book.Update(r.Context(), book); err != nil {
+		h.Logger.Error("failed to update book", "id", id, "err", err)
+		if strings.Contains(err.Error(), "book not found") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(book)
 }
 
 func (h *Handler) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	// TODO: реализовать
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.Logger.Error("invalid book id for delete", "id", idStr, "err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := h.Book.Delete(r.Context(), id); err != nil {
+		h.Logger.Error("failed to delete book", "id", id, "err", err)
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- Category ---
@@ -101,7 +188,11 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	c := &domain.Category{Name: cat.Name}
 	if err := h.Category.Create(r.Context(), c); err != nil {
 		h.Logger.Error("failed to create category", "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		if strings.Contains(err.Error(), "name required") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -126,7 +217,11 @@ func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	c := &domain.Category{ID: id, Name: cat.Name}
 	if err := h.Category.Update(r.Context(), c); err != nil {
 		h.Logger.Error("failed to update category", "id", id, "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		if strings.Contains(err.Error(), "name required") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -142,7 +237,11 @@ func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.Category.Delete(r.Context(), id); err != nil {
 		h.Logger.Error("failed to delete category", "id", id, "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -172,7 +271,14 @@ func (h *Handler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.Cart.AddItem(r.Context(), userID, req.BookID); err != nil {
 		h.Logger.Error("failed to add item to cart", "userID", userID, "bookID", req.BookID, "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		errStr := err.Error()
+		if strings.Contains(errStr, "book not found") ||
+			strings.Contains(errStr, "out of stock") ||
+			strings.Contains(errStr, "not enough books in stock") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -188,7 +294,7 @@ func (h *Handler) RemoveFromCart(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.Cart.RemoveItem(r.Context(), userID, bookID); err != nil {
 		h.Logger.Error("failed to remove item from cart", "userID", userID, "bookID", bookID, "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -210,7 +316,16 @@ func (h *Handler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.Order.Create(r.Context(), userID)
 	if err != nil {
 		h.Logger.Error("failed to place order", "userID", userID, "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		errStr := err.Error()
+		if strings.Contains(errStr, "cart is empty") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(errStr, "book not found") || strings.Contains(errStr, "book out of stock") {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)

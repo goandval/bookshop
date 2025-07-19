@@ -9,8 +9,8 @@ services:
       POSTGRES_PASSWORD: bookshop
     ports:
       - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    # volumes:
+    #   - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7
@@ -48,15 +48,13 @@ services:
       KC_DB_PASSWORD: bookshop
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-    command: start-dev --import-realm
+    command: start-dev
     ports:
       - "8080:8080"
     depends_on:
       - postgres
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
-      - ./keycloak/init-users.sh:/opt/keycloak/init-users.sh
-      - ./keycloak/init-users.env:/opt/keycloak/init-users.env
+    # volumes:
+    #   - ./keycloak/init-users.sh:/opt/keycloak/init-users.sh
 
   bookshop:
     build: .
@@ -73,5 +71,5 @@ services:
       - ./configs:/app/configs
       - ./migrations:/app/migrations
 
-volumes:
-  pgdata: 
+# volumes:
+#   pgdata: 

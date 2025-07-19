@@ -41,6 +41,7 @@ type CartItem struct {
 	CartID     int       `json:"cart_id"`
 	BookID     int       `json:"book_id"`
 	Book       *Book     `json:"book,omitempty"`
+	Quantity   int       `json:"quantity"`
 	ReservedAt time.Time `json:"reserved_at"`
 }
 
@@ -52,9 +53,10 @@ type Order struct {
 }
 
 type OrderItem struct {
-	ID      int     `json:"id"`
-	OrderID int     `json:"order_id"`
-	BookID  int     `json:"book_id"`
-	Book    *Book   `json:"book,omitempty"`
-	Price   float64 `json:"price"`
+	ID       int     `json:"id"`
+	OrderID  int     `json:"order_id"`
+	BookID   int     `json:"book_id"`
+	Book     *Book   `json:"book,omitempty"`
+	Price    float64 `json:"price"`
+	Quantity int     `json:"quantity"`
 }

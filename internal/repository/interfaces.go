@@ -35,6 +35,7 @@ type CartRepository interface {
 	RemoveItem(ctx context.Context, userID string, bookID int) error
 	Clear(ctx context.Context, userID string) error
 	ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error)
+	GetItemQuantity(ctx context.Context, userID string, bookID int) (int, error)
 }
 
 type OrderRepository interface {

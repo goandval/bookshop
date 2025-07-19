@@ -37,3 +37,4 @@ func (r *UserPostgres) CreateIfNotExists(ctx context.Context, user *domain.User)
 	_, err := r.db.Exec(ctx, `INSERT INTO users (id, email, is_admin) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`, user.ID, user.Email, user.IsAdmin)
 	return err
 }
+ 

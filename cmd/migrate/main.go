@@ -66,3 +66,4 @@ func main() {
 	}
 	logger.Info("all migrations applied")
 }
+ 

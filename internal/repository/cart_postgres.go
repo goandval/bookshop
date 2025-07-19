@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yourorg/bookshop/internal/domain"
 )
@@ -34,13 +36,29 @@ func (r *CartPostgres) AddItem(ctx context.Context, userID string, bookID int) e
 			return err
 		}
 	}
-	_, err = r.db.Exec(ctx, `INSERT INTO cart_items (cart_id, book_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, cart.ID, bookID)
+	// Пытаемся увеличить quantity, если книга уже есть
+	res, err := r.db.Exec(ctx, `UPDATE cart_items SET quantity = quantity + 1 WHERE cart_id=$1 AND book_id=$2`, cart.ID, bookID)
+	n := res.RowsAffected()
+	if n == 0 {
+		// если не было — вставляем новую строку
+		_, err = r.db.Exec(ctx, `INSERT INTO cart_items (cart_id, book_id, quantity) VALUES ($1, $2, 1)`, cart.ID, bookID)
+	}
 	return err
 }
 
 func (r *CartPostgres) RemoveItem(ctx context.Context, userID string, bookID int) error {
 	cart, err := r.GetByUserID(ctx, userID)
 	if err != nil {
+		return err
+	}
+	// Получаем текущий quantity
+	var quantity int
+	err = r.db.QueryRow(ctx, `SELECT quantity FROM cart_items WHERE cart_id=$1 AND book_id=$2`, cart.ID, bookID).Scan(&quantity)
+	if err != nil {
+		return err
+	}
+	if quantity > 1 {
+		_, err = r.db.Exec(ctx, `UPDATE cart_items SET quantity = quantity - 1 WHERE cart_id=$1 AND book_id=$2`, cart.ID, bookID)
 		return err
 	}
 	_, err = r.db.Exec(ctx, `DELETE FROM cart_items WHERE cart_id=$1 AND book_id=$2`, cart.ID, bookID)
@@ -61,7 +79,7 @@ func (r *CartPostgres) ListItems(ctx context.Context, userID string) ([]*domain.
 	if err != nil {
 		return nil, err
 	}
-	rows, err := r.db.Query(ctx, `SELECT id, cart_id, book_id, reserved_at FROM cart_items WHERE cart_id=$1`, cart.ID)
+	rows, err := r.db.Query(ctx, `SELECT id, cart_id, book_id, quantity, reserved_at FROM cart_items WHERE cart_id=$1`, cart.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +87,29 @@ func (r *CartPostgres) ListItems(ctx context.Context, userID string) ([]*domain.
 	var items []*domain.CartItem
 	for rows.Next() {
 		var it domain.CartItem
-		if err := rows.Scan(&it.ID, &it.CartID, &it.BookID, &it.ReservedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.CartID, &it.BookID, &it.Quantity, &it.ReservedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, &it)
 	}
 	return items, nil
+}
+
+func (r *CartPostgres) GetItemQuantity(ctx context.Context, userID string, bookID int) (int, error) {
+	cart, err := r.GetByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	var quantity int
+	err = r.db.QueryRow(ctx, `SELECT quantity FROM cart_items WHERE cart_id=$1 AND book_id=$2`, cart.ID, bookID).Scan(&quantity)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return quantity, nil
 }

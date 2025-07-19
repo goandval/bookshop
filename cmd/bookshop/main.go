@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
-	"log"
+	"database/sql"
+	"io/ioutil"
 	"net/http"
 	"os"
 	osignal "os/signal"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
 	chimid "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	redisv9 "github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"golang.org/x/exp/slog"
@@ -21,17 +25,55 @@ import (
 	"github.com/yourorg/bookshop/internal/service"
 )
 
+func runMigrations(ctx context.Context, dbpool *pgxpool.Pool, logger *slog.Logger) error {
+	logger.Info("Running database migrations...")
+
+	// Используем стандартный sql.DB для миграций
+	db, err := sql.Open("pgx", dbpool.Config().ConnString())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	files, err := ioutil.ReadDir("./migrations")
+	if err != nil {
+		return err
+	}
+
+	var sqlFiles []string
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".sql") {
+			sqlFiles = append(sqlFiles, f.Name())
+		}
+	}
+	sort.Strings(sqlFiles)
+
+	for _, fname := range sqlFiles {
+		data, err := ioutil.ReadFile("./migrations/" + fname)
+		if err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, string(data)); err != nil {
+			return err
+		}
+		logger.Info("Applied migration", "file", fname)
+	}
+
+	logger.Info("All migrations completed")
+	return nil
+}
+
 func main() {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "./configs/config.yaml"
 	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	viper.SetConfigFile(configPath)
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("failed to read config: %v", err)
+		logger.Error("failed to read config", "err", err)
+		os.Exit(1)
 	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	logger.Info("Bookshop starting...")
 
 	// --- Postgres ---
@@ -42,6 +84,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer dbpool.Close()
+
+	// --- Run migrations ---
+	if err := runMigrations(context.Background(), dbpool, logger); err != nil {
+		logger.Error("failed to run migrations", "err", err)
+		os.Exit(1)
+	}
 
 	// --- Redis ---
 	rdb := redisv9.NewClient(&redisv9.Options{
@@ -68,7 +116,7 @@ func main() {
 	// --- Сервисы ---
 	bookService := service.NewBookService(bookRepo, categoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo, bookRepo)
-	cartService := service.NewCartService(cartRepo, bookRepo, redisCache)
+	cartService := service.NewCartService(cartRepo, bookRepo, redisCache, logger)
 	orderService := service.NewOrderService(orderRepo, cartRepo, bookRepo, kafkaProducer)
 
 	// --- Delivery ---

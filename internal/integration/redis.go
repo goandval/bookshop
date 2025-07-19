@@ -29,3 +29,12 @@ func (r *RedisCacheImpl) Del(key string) error {
 	ctx := context.Background()
 	return r.rdb.Del(ctx, key).Err()
 }
+
+func (r *RedisCacheImpl) TTL(key string) (int64, error) {
+	ctx := context.Background()
+	dur, err := r.rdb.TTL(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	return int64(dur.Seconds()), nil
+}
