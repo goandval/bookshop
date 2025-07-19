@@ -2,27 +2,34 @@
 
 ## Описание
 
-Bookshop — это монолитный сервис на Go для управления каталогом книг с поддержкой ролей пользователей, корзины, заказов, интеграцией с Keycloak, Redis, Kafka и PostgreSQL.
+Bookshop — это монолитный сервис на Go для управления каталогом книг с поддержкой ролей пользователей, корзины, заказов, интеграцией с Keycloak, Redis, Kafka и PostgreSQL.  
+Документация API (Swagger) доступна по адресу:  
+**`http://localhost:8081/swagger/index.html`** (после генерации командой `make swag`).
 
-## Запуск
+---
+
+## Быстрый старт
 
 1. Клонируйте репозиторий и перейдите в папку проекта.
-2. Соберите и запустите сервисы:
+2. Установите зависимости:
+   ```sh
+   make deps
+   ```
+3. Соберите и запустите сервисы:
+   ```sh
+   make up
+   ```
+   - Приложение: http://localhost:8081
+   - Keycloak: http://localhost:8080 (realm: `bookshop`)
 
-```sh
-make up
-```
+4. Для перезапуска сервиса после изменений:
+   ```sh
+   docker-compose up -d --build bookshop
+   ```
 
-3. Приложение будет доступно на `http://localhost:8081`.
-4. Keycloak доступен на `http://localhost:8080` (realm: `bookshop`).
+---
 
-Если возникают ошибки с кейклоком, выполните команду `docker-compose up -d keycloak`.
-Если возникают ошибки с сервисом bookshop, выполните команду `docker-compose up -d bookshop`.
-
-Для перезапуска сервиса после изменений в коде:
-`docker-compose up -d --build bookshop`
-
-## Доступы пользователей
+## Пользователи
 
 **Пользователи:**
 - user1@bookshop.local / user1pass (роль: user)
@@ -32,45 +39,77 @@ make up
 - admin1@bookshop.local / admin1pass (роль: admin)
 - admin2@bookshop.local / admin2pass (роль: admin)
 
-## Основные переменные окружения
+---
+
+## Переменные окружения и конфиг
 
 - `CONFIG_PATH` — путь к yaml-конфигу приложения (по умолчанию `/app/configs/config.yaml`)
 
-## Миграции
+**Пример config.yaml:**
+```yaml
+postgres:
+  host: postgres
+  port: 5432
+  user: bookshop
+  password: bookshop
+  dbname: bookshop
+  sslmode: disable
+redis:
+  addr: redis:6379
+  db: 0
+kafka:
+  brokers:
+    - kafka:9092
+  order_topic: order_placed
+keycloak:
+  url: http://keycloak:8080
+  realm: bookshop
+  client_id: bookshop-api
+http:
+  addr: :8081
+log:
+  level: info
+```
 
-Миграции БД выполняются автоматически при старте приложения.
+---
 
-## Структура проекта
+## Основные команды Makefile
 
-- `cmd/bookshop` — точка входа приложения
-- `cmd/migrate` — точка входа для миграций
-- `internal/` — бизнес-логика, сервисы, репозитории, интерфейсы
-- `api/` — описание API (контракты, схемы)
-- `configs/` — конфиги
-- `migrations/` — миграции БД
-- `pkg/` — переиспользуемые пакеты
+- `make up` — запуск всех сервисов через docker-compose
+- `make build` — сборка приложения
+- `make run` — запуск приложения локально
+- `make test` — запуск unit-тестов
+- `make lint` — запуск линтеров
+- `make mocks` — генерация моков через mockery
+- `make migrate` — применение миграций
+- `make swag` — генерация swagger-документации (docs/swagger.yaml, docs/swagger.json)
+- `make deps` — установка зависимостей
+
+---
 
 ## Тесты и моки
 
-Для генерации моков используйте:
+- Для запуска тестов:
+  ```sh
+  make test
+  ```
+- Для генерации моков:
+  ```sh
+  make mocks
+  ```
 
-```sh
-make mocks
-```
+---
 
-Для запуска тестов:
+## Swagger/OpenAPI
 
-```sh
-make test
-```
+- Для генерации документации:
+  ```sh
+  make swag
+  ```
+- После генерации документация доступна по адресу:  
+  http://localhost:8081/swagger/index.html
 
-## Линтеры
-
-Для запуска линтеров:
-
-```sh
-make lint
-```
+---
 
 ## Примеры запросов к API
 
@@ -111,6 +150,8 @@ curl -X POST http://localhost:8081/orders \
 - PUT /categories/{id}
 - DELETE /categories/{id}
 
+---
+
 ## Миграции
 
 Для применения миграций:
@@ -118,21 +159,14 @@ curl -X POST http://localhost:8081/orders \
 make migrate
 ```
 
-## Тесты
+---
 
-Для запуска unit-тестов:
-```sh
-make test
-```
+## Структура проекта
 
-Для генерации моков:
-```sh
-make mocks
-```
-
-## Установка зависимостей
-
-Перед запуском любых команд выполните:
-```sh
-make deps
-``` 
+- `cmd/bookshop` — точка входа приложения
+- `cmd/migrate` — миграции
+- `internal/` — бизнес-логика, сервисы, репозитории, интерфейсы, моки
+- `configs/` — конфиги
+- `migrations/` — миграции БД
+- `docs/` — swagger-документация
+- `Makefile` — основные команды
