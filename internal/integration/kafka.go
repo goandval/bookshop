@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/segmentio/kafka-go"
@@ -47,7 +48,10 @@ func (k *KafkaProducerImpl) PublishOrderPlaced(ctx context.Context, orderID int,
 	evt := orderPlacedEvent{OrderID: orderID, UserID: userID, Books: books}
 	data, err := json.Marshal(evt)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal event: %w", err)
 	}
-	return k.writer.WriteMessages(ctx, kafka.Message{Value: data})
+	if err := k.writer.WriteMessages(ctx, kafka.Message{Value: data}); err != nil {
+		return fmt.Errorf("write kafka: %w", err)
+	}
+	return nil
 }

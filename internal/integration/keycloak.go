@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -18,11 +19,11 @@ func NewKeycloakClient() *KeycloakClientImpl {
 func (k *KeycloakClientImpl) ValidateToken(ctx context.Context, tokenStr string) (userID, email string, roles []string, err error) {
 	token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, jwt.MapClaims{})
 	if err != nil {
-		return "", "", nil, errors.New("invalid token format")
+		return "", "", nil, fmt.Errorf("invalid token format: %w", errors.New("invalid token format"))
 	}
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", "", nil, errors.New("invalid claims")
+		return "", "", nil, fmt.Errorf("invalid claims: %w", errors.New("invalid claims"))
 	}
 	uid, _ := claims["sub"].(string)
 	email, _ = claims["email"].(string)

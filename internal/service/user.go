@@ -16,6 +16,5 @@ func NewUserService(repo repository.UserRepository) *UserServiceImpl {
 }
 
 func (s *UserServiceImpl) GetOrCreate(ctx context.Context, id, email string, isAdmin bool) (*domain.User, error) {
-	// TODO: реализовать
 	return nil, nil
 }

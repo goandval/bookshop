@@ -59,7 +59,7 @@ func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int
 		return fmt.Errorf("book not found: %w", err)
 	}
 	if book.Inventory <= 0 {
-		return errors.New("book is out of stock")
+		return fmt.Errorf("book is out of stock: %w", errors.New("book is out of stock"))
 	}
 	quantity, err := s.cartRepo.GetItemQuantity(ctx, userID, bookID)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int
 		}
 	}
 	if quantity >= book.Inventory {
-		return errors.New("not enough books in stock")
+		return fmt.Errorf("not enough books in stock: %w", errors.New("not enough books in stock"))
 	}
 	// inventory НЕ уменьшаем! Только добавляем в корзину
 	if err := s.cartRepo.AddItem(ctx, userID, bookID); err != nil {
@@ -80,17 +80,23 @@ func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int
 }
 
 func (s *CartServiceImpl) RemoveItem(ctx context.Context, userID string, bookID int) error {
-	return s.cartRepo.RemoveItem(ctx, userID, bookID)
+	if err := s.cartRepo.RemoveItem(ctx, userID, bookID); err != nil {
+		return fmt.Errorf("remove item: %w", err)
+	}
+	return nil
 }
 
 func (s *CartServiceImpl) Clear(ctx context.Context, userID string) error {
-	return s.cartRepo.Clear(ctx, userID)
+	if err := s.cartRepo.Clear(ctx, userID); err != nil {
+		return fmt.Errorf("clear cart: %w", err)
+	}
+	return nil
 }
 
 func (s *CartServiceImpl) ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error) {
 	items, err := s.cartRepo.ListItems(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list items: %w", err)
 	}
 	for _, item := range items {
 		book, err := s.bookRepo.GetByID(ctx, item.BookID)

@@ -32,7 +32,7 @@ func (s *OrderServiceImpl) Create(ctx context.Context, userID string) (*domain.O
 		return nil, fmt.Errorf("get cart items: %w", err)
 	}
 	if len(items) == 0 {
-		return nil, errors.New("cart is empty")
+		return nil, fmt.Errorf("cart is empty: %w", errors.New("cart is empty"))
 	}
 	var orderItems []domain.OrderItem
 	var books []integration.OrderPlacedBook
@@ -69,5 +69,9 @@ func (s *OrderServiceImpl) ListByUser(ctx context.Context, userID string) ([]*do
 }
 
 func (s *OrderServiceImpl) ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error) {
-	return s.cartRepo.ListItems(ctx, userID)
+	items, err := s.cartRepo.ListItems(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list items: %w", err)
+	}
+	return items, nil
 }

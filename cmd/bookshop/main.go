@@ -1,8 +1,16 @@
+// @title           Bookshop API
+// @version         1.0
+// @description     API for Bookshop service
+// @BasePath        /
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 package main
 
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -31,13 +39,13 @@ func runMigrations(ctx context.Context, dbpool *pgxpool.Pool, logger *slog.Logge
 	// Используем стандартный sql.DB для миграций
 	db, err := sql.Open("pgx", dbpool.Config().ConnString())
 	if err != nil {
-		return err
+		return fmt.Errorf("open db: %w", err)
 	}
 	defer db.Close()
 
 	files, err := ioutil.ReadDir("./migrations")
 	if err != nil {
-		return err
+		return fmt.Errorf("read migrations dir: %w", err)
 	}
 
 	var sqlFiles []string
@@ -51,10 +59,10 @@ func runMigrations(ctx context.Context, dbpool *pgxpool.Pool, logger *slog.Logge
 	for _, fname := range sqlFiles {
 		data, err := ioutil.ReadFile("./migrations/" + fname)
 		if err != nil {
-			return err
+			return fmt.Errorf("read migration file %s: %w", fname, err)
 		}
 		if _, err := db.ExecContext(ctx, string(data)); err != nil {
-			return err
+			return fmt.Errorf("exec migration %s: %w", fname, err)
 		}
 		logger.Info("Applied migration", "file", fname)
 	}
@@ -99,10 +107,10 @@ func main() {
 	defer rdb.Close()
 
 	// --- Kafka ---
-	kafkaProducer := integration.NewKafkaProducer() // TODO: передать конфиг
+	kafkaProducer := integration.NewKafkaProducer()
 
 	// --- Keycloak ---
-	keycloak := integration.NewKeycloakClient() // TODO: передать конфиг
+	keycloak := integration.NewKeycloakClient()
 
 	// --- Интеграции ---
 	redisCache := integration.NewRedisCache(rdb)

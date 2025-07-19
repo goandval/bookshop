@@ -31,16 +31,22 @@ func (s *CategoryServiceImpl) List(ctx context.Context) ([]*domain.Category, err
 
 func (s *CategoryServiceImpl) Create(ctx context.Context, category *domain.Category) error {
 	if category.Name == "" {
-		return errors.New("name required")
+		return fmt.Errorf("name required: %w", errors.New("name required"))
 	}
-	return s.categoryRepo.Create(ctx, category)
+	if err := s.categoryRepo.Create(ctx, category); err != nil {
+		return fmt.Errorf("create category: %w", err)
+	}
+	return nil
 }
 
 func (s *CategoryServiceImpl) Update(ctx context.Context, category *domain.Category) error {
 	if category.Name == "" {
-		return errors.New("name required")
+		return fmt.Errorf("name required: %w", errors.New("name required"))
 	}
-	return s.categoryRepo.Update(ctx, category)
+	if err := s.categoryRepo.Update(ctx, category); err != nil {
+		return fmt.Errorf("update category: %w", err)
+	}
+	return nil
 }
 
 func (s *CategoryServiceImpl) Delete(ctx context.Context, id int) error {
@@ -60,6 +66,8 @@ func (s *CategoryServiceImpl) Delete(ctx context.Context, id int) error {
 			return fmt.Errorf("move book to 'Без категории': %w", err)
 		}
 	}
-	return s.categoryRepo.Delete(ctx, id)
+	if err := s.categoryRepo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete category: %w", err)
+	}
+	return nil
 }
- 

@@ -31,12 +31,15 @@ func (s *BookServiceImpl) List(ctx context.Context, categoryIDs []int, limit, of
 
 func (s *BookServiceImpl) Create(ctx context.Context, book *domain.Book) error {
 	if book.Inventory < 0 {
-		return errors.New("inventory must be >= 0")
+		return fmt.Errorf("inventory must be >= 0: %w", errors.New("inventory must be >= 0"))
 	}
 	if book.CategoryID == 0 {
-		return errors.New("category required")
+		return fmt.Errorf("category required: %w", errors.New("category required"))
 	}
-	return s.bookRepo.Create(ctx, book)
+	if err := s.bookRepo.Create(ctx, book); err != nil {
+		return fmt.Errorf("create book: %w", err)
+	}
+	return nil
 }
 
 func (s *BookServiceImpl) Update(ctx context.Context, book *domain.Book) error {
@@ -46,10 +49,15 @@ func (s *BookServiceImpl) Update(ctx context.Context, book *domain.Book) error {
 		return fmt.Errorf("book not found: %w", err)
 	}
 	book.Inventory = old.Inventory
-	return s.bookRepo.Update(ctx, book)
+	if err := s.bookRepo.Update(ctx, book); err != nil {
+		return fmt.Errorf("update book: %w", err)
+	}
+	return nil
 }
 
 func (s *BookServiceImpl) Delete(ctx context.Context, id int) error {
-	return s.bookRepo.Delete(ctx, id)
+	if err := s.bookRepo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete book: %w", err)
+	}
+	return nil
 }
- 
