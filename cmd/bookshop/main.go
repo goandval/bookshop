@@ -122,10 +122,10 @@ func main() {
 	orderRepo := repository.NewOrderPostgres(dbpool)
 
 	// --- Сервисы ---
-	bookService := service.NewBookService(bookRepo, categoryRepo)
+	bookService := service.NewBookService(bookRepo, categoryRepo, redisCache)
 	categoryService := service.NewCategoryService(categoryRepo, bookRepo)
 	cartService := service.NewCartService(cartRepo, bookRepo, redisCache, logger)
-	orderService := service.NewOrderService(orderRepo, cartRepo, bookRepo, kafkaProducer)
+	orderService := service.NewOrderService(orderRepo, cartRepo, bookRepo, kafkaProducer, redisCache)
 
 	// --- Delivery ---
 	handler := httpdelivery.NewHandler(bookService, categoryService, cartService, orderService, logger)

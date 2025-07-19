@@ -15,14 +15,16 @@ type OrderServiceImpl struct {
 	cartRepo  repository.CartRepository
 	bookRepo  repository.BookRepository
 	kafka     integration.KafkaProducer
+	redis     integration.RedisCache
 }
 
-func NewOrderService(orderRepo repository.OrderRepository, cartRepo repository.CartRepository, bookRepo repository.BookRepository, kafka integration.KafkaProducer) *OrderServiceImpl {
+func NewOrderService(orderRepo repository.OrderRepository, cartRepo repository.CartRepository, bookRepo repository.BookRepository, kafka integration.KafkaProducer, redis integration.RedisCache) *OrderServiceImpl {
 	return &OrderServiceImpl{
 		orderRepo: orderRepo,
 		cartRepo:  cartRepo,
 		bookRepo:  bookRepo,
 		kafka:     kafka,
+		redis:     redis,
 	}
 }
 
@@ -53,6 +55,11 @@ func (s *OrderServiceImpl) Create(ctx context.Context, userID string) (*domain.O
 	}
 	if err := s.cartRepo.Clear(ctx, userID); err != nil {
 		return nil, fmt.Errorf("clear cart: %w", err)
+	}
+	// Удаляем все резервы пользователя
+	for _, item := range items {
+		reserveKey := fmt.Sprintf("reserve:%s:%d", userID, item.BookID)
+		s.redis.Del(reserveKey)
 	}
 	if err := s.kafka.PublishOrderPlaced(ctx, order.ID, userID, books); err != nil {
 		return nil, fmt.Errorf("publish kafka: %w", err)

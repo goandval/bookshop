@@ -55,3 +55,4 @@ func (k *KafkaProducerImpl) PublishOrderPlaced(ctx context.Context, orderID int,
 	}
 	return nil
 }
+ 

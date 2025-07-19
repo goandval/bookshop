@@ -72,10 +72,12 @@ func (s *CartServiceImpl) AddItem(ctx context.Context, userID string, bookID int
 	if quantity >= book.Inventory {
 		return fmt.Errorf("not enough books in stock: %w", errors.New("not enough books in stock"))
 	}
-	// inventory НЕ уменьшаем! Только добавляем в корзину
 	if err := s.cartRepo.AddItem(ctx, userID, bookID); err != nil {
 		return fmt.Errorf("add to cart: %w", err)
 	}
+	// Резервируем книгу в Redis на 30 минут
+	reserveKey := fmt.Sprintf("reserve:%s:%d", userID, bookID)
+	s.redis.Set(reserveKey, "1", 1800)
 	return nil
 }
 
@@ -83,12 +85,20 @@ func (s *CartServiceImpl) RemoveItem(ctx context.Context, userID string, bookID 
 	if err := s.cartRepo.RemoveItem(ctx, userID, bookID); err != nil {
 		return fmt.Errorf("remove item: %w", err)
 	}
+	reserveKey := fmt.Sprintf("reserve:%s:%d", userID, bookID)
+	s.redis.Del(reserveKey)
 	return nil
 }
 
 func (s *CartServiceImpl) Clear(ctx context.Context, userID string) error {
+	items, _ := s.cartRepo.ListItems(ctx, userID)
 	if err := s.cartRepo.Clear(ctx, userID); err != nil {
 		return fmt.Errorf("clear cart: %w", err)
+	}
+	// Удаляем все резервы пользователя
+	for _, item := range items {
+		reserveKey := fmt.Sprintf("reserve:%s:%d", userID, item.BookID)
+		s.redis.Del(reserveKey)
 	}
 	return nil
 }

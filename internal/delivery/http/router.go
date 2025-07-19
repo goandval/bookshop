@@ -39,3 +39,4 @@ func (h *Handler) Router(auth *AuthMiddleware) http.Handler {
 
 	return r
 }
+ 
