@@ -6,8 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"io"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/yourorg/bookshop/internal/mocks"
 	"golang.org/x/exp/slog"
 )
@@ -15,16 +18,16 @@ import (
 func TestAuthMiddleware_JWTAuth_Success(t *testing.T) {
 	keycloak := new(mocks.KeycloakClient)
 	keycloak.On("ValidateToken", mock.Anything, "valid-token").Return("user-1", "user@ex.com", []string{"user"}, nil)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mw := NewAuthMiddleware(keycloak, logger)
 
 	called := false
 	h := mw.JWTAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		ctx := r.Context()
-		assert.Equal(t, "user-1", ctx.Value("userID"))
-		assert.Equal(t, "user@ex.com", ctx.Value("email"))
-		assert.Contains(t, ctx.Value("roles").([]string), "user")
+		require.Equal(t, "user-1", ctx.Value("userID"))
+		require.Equal(t, "user@ex.com", ctx.Value("email"))
+		require.Contains(t, ctx.Value("roles").([]string), "user")
 	}))
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -38,7 +41,7 @@ func TestAuthMiddleware_JWTAuth_Success(t *testing.T) {
 
 func TestAuthMiddleware_RequireRole_Forbidden(t *testing.T) {
 	keycloak := new(mocks.KeycloakClient)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mw := NewAuthMiddleware(keycloak, logger)
 
 	h := mw.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,4 +55,3 @@ func TestAuthMiddleware_RequireRole_Forbidden(t *testing.T) {
 	h.ServeHTTP(rw, req.WithContext(ctx))
 	assert.Equal(t, 403, rw.Code)
 }
- 

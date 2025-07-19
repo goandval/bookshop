@@ -80,6 +80,34 @@ func (_m *CartRepository) GetByUserID(ctx context.Context, userID string) (*doma
 	return r0, r1
 }
 
+// GetItemQuantity provides a mock function with given fields: ctx, userID, bookID
+func (_m *CartRepository) GetItemQuantity(ctx context.Context, userID string, bookID int) (int, error) {
+	ret := _m.Called(ctx, userID, bookID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetItemQuantity")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) (int, error)); ok {
+		return rf(ctx, userID, bookID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) int); ok {
+		r0 = rf(ctx, userID, bookID)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, userID, bookID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListItems provides a mock function with given fields: ctx, userID
 func (_m *CartRepository) ListItems(ctx context.Context, userID string) ([]*domain.CartItem, error) {
 	ret := _m.Called(ctx, userID)

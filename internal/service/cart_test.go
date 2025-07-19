@@ -2,13 +2,15 @@ package service
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"io"
+
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/yourorg/bookshop/internal/domain"
 	"github.com/yourorg/bookshop/internal/mocks"
+	"golang.org/x/exp/slog"
 )
 
 func TestCartService_AddItem_Success(t *testing.T) {
@@ -20,15 +22,13 @@ func TestCartService_AddItem_Success(t *testing.T) {
 	bookID := 42
 
 	bookRepo.On("GetByID", mock.Anything, bookID).Return(&domain.Book{ID: bookID, Inventory: 1}, nil)
-	redis.On("Get", mock.Anything).Return("", errors.New("redis: nil")) // not reserved
-	redis.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	cartRepo.On("AddItem", mock.Anything, userID, bookID).Return(nil)
+	cartRepo.On("GetItemQuantity", mock.Anything, userID, bookID).Return(0, nil)
 
-	svc := &CartServiceImpl{cartRepo, bookRepo, redis}
+	svc := &CartServiceImpl{cartRepo, bookRepo, redis, slog.New(slog.NewTextHandler(io.Discard, nil))}
 	err := svc.AddItem(context.Background(), userID, bookID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	bookRepo.AssertExpectations(t)
-	redis.AssertExpectations(t)
 	cartRepo.AssertExpectations(t)
 }
 
@@ -41,10 +41,11 @@ func TestCartService_AddItem_AlreadyReserved(t *testing.T) {
 	bookID := 42
 
 	bookRepo.On("GetByID", mock.Anything, bookID).Return(&domain.Book{ID: bookID, Inventory: 1}, nil)
-	redis.On("Get", mock.Anything).Return("reserved", nil) // already reserved
+	cartRepo.On("GetItemQuantity", mock.Anything, userID, bookID).Return(1, nil)
 
-	svc := &CartServiceImpl{cartRepo, bookRepo, redis}
+	svc := &CartServiceImpl{cartRepo, bookRepo, redis, slog.New(slog.NewTextHandler(io.Discard, nil))}
 	err := svc.AddItem(context.Background(), userID, bookID)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "reserved")
+	require.Error(t, err)
+	require.Equal(t, "not enough books in stock: not enough books in stock", err.Error())
+	cartRepo.AssertExpectations(t)
 }
