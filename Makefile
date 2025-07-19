@@ -3,7 +3,7 @@
 APP_NAME=bookshop
 GO_FILES=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
-.PHONY: all build run test lint mocks migrate deps up swag
+.PHONY: all build run test lint mocks migrate deps up swag stop
 
 all: build
 
@@ -36,3 +36,6 @@ up:
 
 swag:
 	swag init -g cmd/bookshop/main.go -o ./docs 
+
+stop:
+	docker-compose down 
